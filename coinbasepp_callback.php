@@ -15,7 +15,7 @@ if($type == "success") {
   // Customer's browser - they clicked Cancel during checkout
   zen_remove_order($_SESSION['coinbasepp_order_id']);
   unset($_SESSION['coinbasepp_order_id']);
-  zen_redirect(zen_href_link('home'));
+  zen_redirect(zen_href_link('index'));
 } else if($type == "oauth") { 
 
   // Admin connecting OAuth account
@@ -38,7 +38,17 @@ if($type == "success") {
 } else if($type == MODULE_PAYMENT_COINBASE_CALLBACK_SECRET) {
 
   // From Coinbase - callback
-  $coinbase = new Coinbase(new Coinbase_Oauth(MODULE_PAYMENT_COINBASE_OAUTH_CLIENTID, MODULE_PAYMENT_COINBASE_OAUTH_CLIENTSECRET, unserialize(MODULE_PAYMENT_COINBASE_OAUTH_TOKENS)));
+  $postBody = json_decode(file_get_contents('php://input'));
+  $coinbase = new Coinbase(new Coinbase_Oauth(MODULE_PAYMENT_COINBASE_OAUTH_CLIENTID, MODULE_PAYMENT_COINBASE_OAUTH_CLIENTSECRET, null), unserialize(MODULE_PAYMENT_COINBASE_OAUTH));
+  $orderId = $postBody->order->id;
+  $order = $coinbase->getOrder($orderId);
   
+  if($order == null) {
+    // Callback is no good
+    header("HTTP/1.1 500 Internal Server Error");
+    return;
+  }
   
+  // Update order status
+  $db->Execute("update ". TABLE_ORDERS. " set orders_status = " . MODULE_PAYMENT_COINBASE_COMPLETE_STATUS_ID . " where orders_id = ". intval($order->custom));
 }

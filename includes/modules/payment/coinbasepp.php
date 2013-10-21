@@ -61,23 +61,45 @@ class coinbasepp {
     $custom = $insert_id;
     $currencyCode = $info['currency'];
     $total = $info['total'];
+    $callback = zen_href_link('coinbasepp_callback.php', $parameters='', $connection='NONSSL', $add_session_id=true, $search_engine_safe=true, $static=true );
     $params = array (
       'description' => $name,
-      'callback_url' => zen_href_link('coinbasepp_callback.php', $parameters='', $connection='NONSSL', $add_session_id=true, $search_engine_safe=true, $static=true ),
-      'success_url' => zen_href_link('account'),
+      'callback_url' => $callback . "?type=" . MODULE_PAYMENT_COINBASE_CALLBACK_SECRET,
+      'success_url' => $callback . "?type=success",
+      'cancel_url' => $callback . "?type=cancel",
+      'info_url' => zen_href_link('index')
     );
     
     require_once(dirname(__FILE__) . "/coinbase/Coinbase.php");
     
-    $coinbase = new Coinbase(new Coinbase_Oauth(MODULE_PAYMENT_COINBASE_OAUTH_CLIENTID, MODULE_PAYMENT_COINBASE_OAUTH_CLIENTSECRET, unserialize(MODULE_PAYMENT_COINBASE_OAUTH_TOKENS)));
+    $oauth = new Coinbase_Oauth(MODULE_PAYMENT_COINBASE_OAUTH_CLIENTID, MODULE_PAYMENT_COINBASE_OAUTH_CLIENTSECRET, null);
+    $coinbase = new Coinbase($oauth, unserialize(MODULE_PAYMENT_COINBASE_OAUTH));
     
-    $code = $coinbase->createButton($name, $total, $currencyCode, $custom, $params)->button->code;
+    try {
+      $code = $coinbase->createButton($name, $total, $currencyCode, $custom, $params)->button->code;
+    } catch (Coinbase_TokensExpiredException $e) {
+      try {
+        $tokens = $oauth->refreshTokens();
+      } catch (Exception $f) {
+        tokenFail();
+      }
+      $coinbase = new Coinbase($oauth, $tokens);
+      $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '" . mysql_real_escape_string(serialize($tokens)) . "' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH'");
+
+      $code = $coinbase->createButton($name, $total, $currencyCode, $custom, $params)->button->code;
+    }
     
     $_SESSION['cart']->reset(true);
     $_SESSION['coinbasepp_order_id'] = $insert_id;
     zen_redirect("https://coinbase.com/checkouts/$code");
     
     return false;
+  }
+  
+  function tokenFail() {
+    
+    $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH'");
+    throw new Exception("No account is connected, or the current account is not working. You need to connect a merchant account in ZenCart Admin.");
   }
   
   function check() {
@@ -96,6 +118,8 @@ class coinbasepp {
       zen_redirect(zen_href_link(FILENAME_MODULES, 'set=payment&module=coinbase', 'NONSSL'));
       return 'failed';
     }
+    
+    $callbackSecret = md5('zencart_' . mt_rand());
   
     $db->Execute("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, set_function, date_added) values ('Enable Coinbase Module', 'MODULE_PAYMENT_COINBASE_STATUS', 'True', 'Enable the Coinbase bitcoin plugin?', '6', '0', 'zen_cfg_select_option(array(\'True\', \'False\'), ', now())");
     $db->Execute("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added) values ('Sort order of display.', 'MODULE_PAYMENT_COINBASE_SORT_ORDER', '0', 'Sort order of display. Lowest is displayed first.', '6', '8', now())");
@@ -104,6 +128,7 @@ class coinbasepp {
     $db->Execute("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, set_function, use_function, date_added) values ('Merchant Account', 'MODULE_PAYMENT_COINBASE_OAUTH', '', '', '6', '6', 'coinbasepp_oauth_set(', 'coinbasepp_oauth_use', now())");
     $db->Execute("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added, use_function) values ('Client ID', 'MODULE_PAYMENT_COINBASE_OAUTH_CLIENTID', '', '', '6', '6', now(), 'coinbasepp_censor_use')");
     $db->Execute("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added, use_function) values ('Client Secret', 'MODULE_PAYMENT_COINBASE_OAUTH_CLIENTSECRET', '', '', '6', '6', now(), 'coinbasepp_censor_use')");
+    $db->Execute("insert into " . TABLE_CONFIGURATION . " (configuration_title, configuration_key, configuration_value, configuration_description, configuration_group_id, sort_order, date_added, use_function) values ('Callback Secret Key (do not edit)', 'MODULE_PAYMENT_COINBASE_CALLBACK_SECRET', '$callbackSecret', '', '6', '6', now(), 'coinbasepp_censor_use')");
   }
   
   function remove() {
@@ -120,6 +145,7 @@ class coinbasepp {
       'MODULE_PAYMENT_COINBASE_OAUTH',
       'MODULE_PAYMENT_COINBASE_OAUTH_CLIENTID',
       'MODULE_PAYMENT_COINBASE_OAUTH_CLIENTSECRET',
+      'MODULE_PAYMENT_COINBASE_CALLBACK_SECRET',
     );
   }
 
