@@ -73,15 +73,16 @@ class coinbasepp {
     require_once(dirname(__FILE__) . "/coinbase/Coinbase.php");
     
     $oauth = new Coinbase_Oauth(MODULE_PAYMENT_COINBASE_OAUTH_CLIENTID, MODULE_PAYMENT_COINBASE_OAUTH_CLIENTSECRET, null);
-    $coinbase = new Coinbase($oauth, unserialize(MODULE_PAYMENT_COINBASE_OAUTH));
+    $tokens = unserialize(MODULE_PAYMENT_COINBASE_OAUTH);
+    $coinbase = new Coinbase($oauth, $tokens);
     
     try {
       $code = $coinbase->createButton($name, $total, $currencyCode, $custom, $params)->button->code;
     } catch (Coinbase_TokensExpiredException $e) {
       try {
-        $tokens = $oauth->refreshTokens();
+        $tokens = $oauth->refreshTokens($tokens);
       } catch (Exception $f) {
-        tokenFail();
+        $this->tokenFail($f->getMessage());
       }
       $coinbase = new Coinbase($oauth, $tokens);
       $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '" . mysql_real_escape_string(serialize($tokens)) . "' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH'");
@@ -96,12 +97,13 @@ class coinbasepp {
     return false;
   }
   
-  function tokenFail() {
+  function tokenFail($msg) {
     
+    global $db;
     $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH'");
     $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH_CLIENTID'");
     $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH_CLIENTSECRET'");
-    throw new Exception("No account is connected, or the current account is not working. You need to connect a merchant account in ZenCart Admin.");
+    throw new Exception("No account is connected, or the current account is not working. You need to connect a merchant account in ZenCart Admin. $msg");
   }
   
   function check() {
