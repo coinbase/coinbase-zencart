@@ -3,6 +3,8 @@ coinbase-zencart
 
 Accept Bitcoin on your ZenCart-powered website with Coinbase. 
 
+Download the plugin here: https://github.com/coinbase/coinbase-zencart/archive/master.zip
+
 Installation
 -------
 
