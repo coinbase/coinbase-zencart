@@ -13,7 +13,6 @@ if($type == "success") {
 } if($type == "cancel") {
 
   // Customer's browser - they clicked Cancel during checkout
-  zen_remove_order($_SESSION['coinbasepp_order_id']);
   unset($_SESSION['coinbasepp_order_id']);
   zen_redirect(zen_href_link('index'));
 } else if($type == "oauth") { 
