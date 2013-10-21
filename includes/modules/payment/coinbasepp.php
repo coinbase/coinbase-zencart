@@ -99,6 +99,8 @@ class coinbasepp {
   function tokenFail() {
     
     $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH'");
+    $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH_CLIENTID'");
+    $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH_CLIENTSECRET'");
     throw new Exception("No account is connected, or the current account is not working. You need to connect a merchant account in ZenCart Admin.");
   }
   
