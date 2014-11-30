@@ -85,7 +85,7 @@ class coinbasepp {
         $this->tokenFail($f->getMessage());
       }
       $coinbase = new Coinbase($oauth, $tokens);
-      $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '" . mysql_real_escape_string(serialize($tokens)) . "' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH'");
+      $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '" . $db->prepare_input(serialize($tokens)) . "' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH'");
 
       $code = $coinbase->createButton($name, $total, $currencyCode, $custom, $params)->button->code;
     }
