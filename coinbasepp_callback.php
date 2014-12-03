@@ -31,7 +31,7 @@ if($type == "success") {
   }
   
   global $db;
-  $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '" . mysql_real_escape_string(serialize($tokens)) . "' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH'");
+  $db->Execute("update ". TABLE_CONFIGURATION. " set configuration_value = '" . $db->prepare_input(serialize($tokens)) . "' where configuration_key = 'MODULE_PAYMENT_COINBASE_OAUTH'");
   
   zen_redirect($hostPart . $_GET['after']);
 } else if($type == MODULE_PAYMENT_COINBASE_CALLBACK_SECRET) {
